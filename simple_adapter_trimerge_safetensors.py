@@ -38,7 +38,7 @@ def Blend(aPath, bPath, cPath, outName):
             print(f"Copying tensor for key: {key}, Size: {b[key].size()}")
             a[key] = b[key]
         elif key in c:
-            print(f"Copying tensor for key: {key}, Size: {b[key].size()}")
+            print(f"Copying tensor for key: {key}, Size: {c[key].size()}")
             a[key] = c[key]
         # No need to handle the cases where key is only in 'a', as it is already in 'a'
 
