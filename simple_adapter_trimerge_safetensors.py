@@ -1,5 +1,4 @@
 import os, torch
-from tqdm import tqdm
 from safetensors import safe_open
 from safetensors.torch import save_file
 
@@ -22,7 +21,7 @@ def Blend(aPath, bPath, cPath, outName):
     
     all_keys = list(set(a.keys()) | set(b.keys()) | set(c.keys()))  # Get all unique keys
     
-    for key in tqdm(all_keys):
+    for key in all_keys:
         if key in a and key in b and key in c:
             print(f"Merging tensors for key: {key}, Size: {a[key].size()}")
             a[key] = (a[key] + b[key] + c[key]) / 3
