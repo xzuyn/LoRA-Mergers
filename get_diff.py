@@ -14,9 +14,10 @@
 
 import torch
 from transformers import AutoModel
-from safetensors.torch import save_file
+from safetensors.torch import save_file, safe_open
 from tqdm import tqdm
 import argparse
+import gc
 
 
 def get_diff_adapter(
@@ -312,11 +313,25 @@ def get_applied_diff_model(
     return applied_diff_model
 
 
-def diff_with_base(base, a, b, x=1):
-    base = torch.load(base, map_location="cpu")
-    aLoRA = torch.load(a, map_location="cpu")
-    bLoRA = torch.load(b, map_location="cpu")
+def diff_with_base(base, a, b, x=1, is_safetensors=True):
     cLoRA = {}
+    if is_safetensors is True:
+        base = {}
+        aLoRA = {}
+        bLoRA = {}
+        with safe_open(base, framework="pt", device="cpu") as fbase:
+            for kbase in fbase.keys():
+                base[kbase] = fbase.get_tensor(kbase)
+        with safe_open(a, framework="pt", device="cpu") as faLoRA:
+            for kaLoRA in faLoRA.keys():
+                aLoRA[kaLoRA] = faLoRA.get_tensor(kaLoRA)
+        with safe_open(b, framework="pt", device="cpu") as fbLoRA:
+            for kbLoRA in fbLoRA.keys():
+                bLoRA[kbLoRA] = fbLoRA.get_tensor(kbLoRA)
+    else:
+        base = torch.load(base, map_location="cpu")
+        aLoRA = torch.load(a, map_location="cpu")
+        bLoRA = torch.load(b, map_location="cpu")
 
     for k in tqdm(base.keys()):
         if k in aLoRA.keys() and k in bLoRA.keys():
@@ -325,12 +340,26 @@ def diff_with_base(base, a, b, x=1):
                     +
                     torch.sub(bLoRA[k], base[k])
             ) / x
+            base[k] = None
+            aLoRA[k] = None
+            bLoRA[k] = None
         elif k in aLoRA.keys():
             cLoRA[k] = torch.sub(aLoRA[k], base[k])
+            base[k] = None
+            aLoRA[k] = None
         elif k in bLoRA.keys():
             cLoRA[k] = torch.sub(bLoRA[k], base[k])
+            base[k] = None
+            bLoRA[k] = None
         else:
             cLoRA[k] = torch.sub(base[k], base[k])
+            base[k] = None
+
+    base = None
+    aLoRA = None
+    bLoRA = None
+
+    gc.collect()
 
     return cLoRA
 
