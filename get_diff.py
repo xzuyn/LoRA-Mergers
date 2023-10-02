@@ -278,7 +278,7 @@ def get_applied_diff_model(
     return applied_diff_model
 
 
-def diff_with_base(base, a, b, x, is_safetensors, chunk_size=8):
+def diff_with_base(base, a, b, x, is_safetensors):
     cLoRA = {}
     if is_safetensors is True:
         baseLoRA = {}
@@ -298,39 +298,38 @@ def diff_with_base(base, a, b, x, is_safetensors, chunk_size=8):
         aLoRA = torch.load(a, map_location="cpu")
         bLoRA = torch.load(b, map_location="cpu")
 
-    keys = list(baseLoRA.keys())
-
-    for i in tqdm(range(0, len(keys), chunk_size)):
-        chunk_keys = keys[i:i + chunk_size]
-
-        # Move the chunk of tensors to GPU
-        baseLoRA_chunk = {k: baseLoRA[k].to("cuda") for k in chunk_keys}
-        aLoRA_chunk = {k: aLoRA[k].to("cuda") for k in chunk_keys}
-        bLoRA_chunk = {k: bLoRA[k].to("cuda") for k in chunk_keys}
-
-        for k in chunk_keys:
-            if k in aLoRA_chunk.keys() and k in bLoRA_chunk.keys():
-                cLoRA[k] = torch.div(
-                    torch.add(
-                        torch.sub(aLoRA_chunk[k], baseLoRA_chunk[k]),
-                        torch.sub(bLoRA_chunk[k], baseLoRA_chunk[k]),
-                    ),
-                    x,
-                )
-                baseLoRA_chunk[k] = None
-                aLoRA_chunk[k] = None
-                bLoRA_chunk[k] = None
-            elif k in aLoRA_chunk.keys():
-                cLoRA[k] = torch.sub(aLoRA_chunk[k], baseLoRA_chunk[k])
-                baseLoRA_chunk[k] = None
-                aLoRA_chunk[k] = None
-            elif k in bLoRA_chunk.keys():
-                cLoRA[k] = torch.sub(bLoRA_chunk[k], baseLoRA_chunk[k])
-                baseLoRA_chunk[k] = None
-                bLoRA_chunk[k] = None
-            else:
-                cLoRA[k] = torch.sub(baseLoRA_chunk[k], baseLoRA_chunk[k])
-                baseLoRA_chunk[k] = None
+    for k in tqdm(baseLoRA.keys()):
+        if k in aLoRA.keys() and k in bLoRA.keys():
+            baseLoRA[k], aLoRA[k], bLoRA[k] = baseLoRA[k].to("cuda"), aLoRA[k].to("cuda"), bLoRA[k].to("cuda")
+            cLoRA[k] = torch.div(
+                torch.add(
+                    torch.sub(aLoRA[k], baseLoRA[k]),
+                    torch.sub(bLoRA[k], baseLoRA[k]),
+                ),
+                x,
+            )
+            cLoRA[k].to("cpu")
+            baseLoRA[k] = None
+            aLoRA[k] = None
+            bLoRA[k] = None
+        elif k in aLoRA.keys():
+            baseLoRA[k], aLoRA[k] = baseLoRA[k].to("cuda"), aLoRA[
+                k].to("cuda")
+            cLoRA[k] = torch.sub(aLoRA[k], baseLoRA[k])
+            cLoRA[k].to("cpu")
+            baseLoRA[k] = None
+            aLoRA[k] = None
+        elif k in bLoRA.keys():
+            baseLoRA[k], bLoRA[k] = baseLoRA[k].to("cuda"), bLoRA[k].to("cuda")
+            cLoRA[k] = torch.sub(bLoRA[k], baseLoRA[k])
+            cLoRA[k].to("cpu")
+            baseLoRA[k] = None
+            bLoRA[k] = None
+        else:
+            baseLoRA[k] = baseLoRA[k].to("cuda")
+            cLoRA[k] = torch.sub(baseLoRA[k], baseLoRA[k])
+            cLoRA[k].to("cpu")
+            baseLoRA[k] = None
 
     baseLoRA = None
     aLoRA = None
