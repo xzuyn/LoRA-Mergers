@@ -1,4 +1,4 @@
-# Version: 0.06
+# Version: 0.07
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -278,7 +278,7 @@ def get_applied_diff_model(
     return applied_diff_model
 
 
-def diff_with_base(base, a, b, x, is_safetensors):
+def diff_with_base(base, a, b, x, is_safetensors, chunk_size=8):
     cLoRA = {}
     if is_safetensors is True:
         baseLoRA = {}
@@ -298,29 +298,39 @@ def diff_with_base(base, a, b, x, is_safetensors):
         aLoRA = torch.load(a, map_location="cpu")
         bLoRA = torch.load(b, map_location="cpu")
 
-    for k in tqdm(baseLoRA.keys()):
-        if k in aLoRA.keys() and k in bLoRA.keys():
-            cLoRA[k] = torch.div(
-                torch.add(
-                    torch.sub(aLoRA[k], baseLoRA[k]),
-                    torch.sub(bLoRA[k], baseLoRA[k]),
-                ),
-                x,
-            )
-            baseLoRA[k] = None
-            aLoRA[k] = None
-            bLoRA[k] = None
-        elif k in aLoRA.keys():
-            cLoRA[k] = torch.sub(aLoRA[k], baseLoRA[k])
-            baseLoRA[k] = None
-            aLoRA[k] = None
-        elif k in bLoRA.keys():
-            cLoRA[k] = torch.sub(bLoRA[k], baseLoRA[k])
-            baseLoRA[k] = None
-            bLoRA[k] = None
-        else:
-            cLoRA[k] = torch.sub(baseLoRA[k], baseLoRA[k])
-            baseLoRA[k] = None
+    keys = list(baseLoRA.keys())
+
+    for i in tqdm(range(0, len(keys), chunk_size)):
+        chunk_keys = keys[i:i + chunk_size]
+
+        # Move the chunk of tensors to GPU
+        baseLoRA_chunk = {k: baseLoRA[k].to("cuda") for k in chunk_keys}
+        aLoRA_chunk = {k: aLoRA[k].to("cuda") for k in chunk_keys}
+        bLoRA_chunk = {k: bLoRA[k].to("cuda") for k in chunk_keys}
+
+        for k in chunk_keys:
+            if k in aLoRA_chunk.keys() and k in bLoRA_chunk.keys():
+                cLoRA[k] = torch.div(
+                    torch.add(
+                        torch.sub(aLoRA_chunk[k], baseLoRA_chunk[k]),
+                        torch.sub(bLoRA_chunk[k], baseLoRA_chunk[k]),
+                    ),
+                    x,
+                )
+                baseLoRA_chunk[k] = None
+                aLoRA_chunk[k] = None
+                bLoRA_chunk[k] = None
+            elif k in aLoRA_chunk.keys():
+                cLoRA[k] = torch.sub(aLoRA_chunk[k], baseLoRA_chunk[k])
+                baseLoRA_chunk[k] = None
+                aLoRA_chunk[k] = None
+            elif k in bLoRA_chunk.keys():
+                cLoRA[k] = torch.sub(bLoRA_chunk[k], baseLoRA_chunk[k])
+                baseLoRA_chunk[k] = None
+                bLoRA_chunk[k] = None
+            else:
+                cLoRA[k] = torch.sub(baseLoRA_chunk[k], baseLoRA_chunk[k])
+                baseLoRA_chunk[k] = None
 
     baseLoRA = None
     aLoRA = None
