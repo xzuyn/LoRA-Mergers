@@ -338,21 +338,28 @@ def diff_with_base(base, a, b, x=1):
 def main(args):
     if args.mode == "adapter":
         result = get_applied_diff_adapter(
-            args.adapter_a,
-            args.adapter_b,
-            args.adapter_c,
-            args.sub_alpha,
-            args.apl_alpha,
-            args.device
+            a=args.adapter_a,
+            b=args.adapter_b,
+            c=args.adapter_c,
+            sub_alpha=args.sub_alpha,
+            apl_alpha=args.apl_alpha,
+            device=args.device
         )
     elif args.mode == "model":
         result = get_applied_diff_model(
-            args.model_a,
-            args.model_b,
-            args.model_c,
-            args.sub_alpha,
-            args.apl_alpha,
-            args.device
+            a=args.model_a,
+            b=args.model_b,
+            c=args.model_c,
+            sub_alpha=args.sub_alpha,
+            apl_alpha=args.apl_alpha,
+            device=args.device
+        )
+    elif args.mode == "diff_with_base":
+        result = diff_with_base(
+            base=args.dwb_base,
+            a=args.dwb_a,
+            b=args.dwb_b,
+            x=args.dwb_x
         )
     else:
         raise ValueError("Invalid mode. Please choose 'adapter' or 'model'.")
@@ -362,13 +369,14 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Compute and save applied differential updates for adapters or models."
+        description="Compute and save applied differential updates for"
+                    "adapters or models."
     )
     parser.add_argument(
         "--mode",
-        choices=["adapter", "model"],
+        choices=["adapter", "model", "diff_with_base"],
         required=True,
-        help="Choose 'adapter' or 'model' mode.")
+        help="Choose 'adapter', 'model', or 'diff_with_base' mode.")
     parser.add_argument(
         "--sub_alpha",
         type=float,
@@ -422,6 +430,22 @@ if __name__ == "__main__":
         "--model_c",
         type=str,
         help="Identifier or path of the third model."
+    )
+    parser.add_argument(
+        "--dwb_base",
+        type=str,
+    )
+    parser.add_argument(
+        "--dwb_a",
+        type=str,
+    )
+    parser.add_argument(
+        "--dwb_b",
+        type=str,
+    )
+    parser.add_argument(
+        "--dwb_c",
+        type=str,
     )
 
     args = parser.parse_args()
