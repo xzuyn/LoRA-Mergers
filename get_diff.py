@@ -21,10 +21,7 @@ import gc
 
 
 def get_diff_adapter(
-        a: str,
-        b: str,
-        sub_alpha: float = 1,
-        device: str = "cpu"
+    a: str, b: str, sub_alpha: float = 1, device: str = "cpu"
 ):
     """
     Compute the difference between two PyTorch dictionaries.
@@ -59,9 +56,7 @@ def get_diff_adapter(
     for k in tqdm(aLoRA.keys()):
         if k in bLoRA.keys():
             diff_adapter[k] = torch.sub(
-                input=aLoRA[k],
-                other=bLoRA[k],
-                alpha=sub_alpha
+                input=aLoRA[k], other=bLoRA[k], alpha=sub_alpha
             )
         elif k not in bLoRA.keys():
             diff_adapter[k] = aLoRA[k]
@@ -73,12 +68,12 @@ def get_diff_adapter(
 
 
 def get_applied_diff_adapter(
-        a: str,
-        b: str,
-        c: str,
-        sub_alpha: float = 1,
-        apl_alpha: float = 1,
-        device: str = "cpu"
+    a: str,
+    b: str,
+    c: str,
+    sub_alpha: float = 1,
+    apl_alpha: float = 1,
+    device: str = "cpu",
 ):
     """
     Generate a model with applied adapter differential updates based on three
@@ -128,9 +123,7 @@ def get_applied_diff_adapter(
 
     for k in tqdm(aLoRA.keys()):
         diff_adapter[k] = torch.sub(
-            input=aLoRA[k],
-            other=bLoRA[k],
-            alpha=sub_alpha
+            input=aLoRA[k], other=bLoRA[k], alpha=sub_alpha
         )
 
     aLoRA = None
@@ -140,11 +133,8 @@ def get_applied_diff_adapter(
     for k in tqdm(cLoRA.keys()):
         applied_diff_model[k] = torch.add(
             input=cLoRA[k],
-            other=torch.mul(
-                diff_adapter[k],
-                apl_alpha
-            ),
-            alpha=sub_alpha
+            other=torch.mul(diff_adapter[k], apl_alpha),
+            alpha=sub_alpha,
         )
 
     cLoRA = None
@@ -153,12 +143,7 @@ def get_applied_diff_adapter(
     return applied_diff_model
 
 
-def get_diff_model(
-        a: str,
-        b: str,
-        sub_alpha: float = 1,
-        device: str = "cpu"
-):
+def get_diff_model(a: str, b: str, sub_alpha: float = 1, device: str = "cpu"):
     """
     Compute the difference between two LlamaForCausalLM models.
 
@@ -192,24 +177,18 @@ def get_diff_model(
     diff_model = {}
 
     aModel = AutoModel.from_pretrained(
-        a,
-        load_in_8bit=False,
-        torch_dtype=torch.float16,
-        device_map=device
+        a, load_in_8bit=False, torch_dtype=torch.float16, device_map=device
     )
 
     bModel = AutoModel.from_pretrained(
-        b,
-        load_in_8bit=False,
-        torch_dtype=torch.float16,
-        device_map=device
+        b, load_in_8bit=False, torch_dtype=torch.float16, device_map=device
     )
 
     for k in tqdm(aModel.state_dict().keys()):
         diff_model[k] = torch.sub(
             input=aModel.state_dict()[k],
             other=bModel.state_dict()[k],
-            alpha=sub_alpha
+            alpha=sub_alpha,
         )
 
     aModel = None
@@ -219,12 +198,12 @@ def get_diff_model(
 
 
 def get_applied_diff_model(
-        a: str,
-        b: str,
-        c: str,
-        sub_alpha: float = 1,
-        apl_alpha: float = 1,
-        device: str = "cpu"
+    a: str,
+    b: str,
+    c: str,
+    sub_alpha: float = 1,
+    apl_alpha: float = 1,
+    device: str = "cpu",
 ):
     """
     Generate a model with applied differential updates based on three
@@ -268,43 +247,30 @@ def get_applied_diff_model(
     applied_diff_model = {}
 
     aModel = AutoModel.from_pretrained(
-        a,
-        load_in_8bit=False,
-        torch_dtype=torch.float16,
-        device_map=device
+        a, load_in_8bit=False, torch_dtype=torch.float16, device_map=device
     )
 
     bModel = AutoModel.from_pretrained(
-        b,
-        load_in_8bit=False,
-        torch_dtype=torch.float16,
-        device_map=device
+        b, load_in_8bit=False, torch_dtype=torch.float16, device_map=device
     )
 
     for k in tqdm(aModel.state_dict().keys()):
         diff_model[k] = torch.sub(
             input=aModel.state_dict()[k],
             other=bModel.state_dict()[k],
-            alpha=sub_alpha
+            alpha=sub_alpha,
         )
 
     aModel = None
     bModel = None
 
     cModel = AutoModel.from_pretrained(
-        c,
-        load_in_8bit=False,
-        torch_dtype=torch.float16,
-        device_map=device
+        c, load_in_8bit=False, torch_dtype=torch.float16, device_map=device
     )
 
     for k in tqdm(cModel.state_dict().keys()):
         applied_diff_model[k] = torch.add(
-            input=cModel,
-            other=torch.mul(
-                diff_model[k],
-                apl_alpha
-            )
+            input=cModel, other=torch.mul(diff_model[k], apl_alpha)
         )
 
     cModel = None
@@ -335,7 +301,10 @@ def diff_with_base(base, a, b, x, is_safetensors):
 
     for k in tqdm(baseLoRA.keys()):
         if k in aLoRA.keys() and k in bLoRA.keys():
-            cLoRA[k] = (torch.sub(aLoRA[k], baseLoRA[k]) + torch.sub(bLoRA[k], baseLoRA[k])) / x
+            cLoRA[k] = (
+                torch.sub(aLoRA[k], baseLoRA[k])
+                + torch.sub(bLoRA[k], baseLoRA[k])
+            ) / x
             baseLoRA[k] = None
             aLoRA[k] = None
             bLoRA[k] = None
@@ -368,7 +337,7 @@ def main(args):
             c=args.adapter_c,
             sub_alpha=args.sub_alpha,
             apl_alpha=args.apl_alpha,
-            device=args.device
+            device=args.device,
         )
     elif args.mode == "model":
         result = get_applied_diff_model(
@@ -377,7 +346,7 @@ def main(args):
             c=args.model_c,
             sub_alpha=args.sub_alpha,
             apl_alpha=args.apl_alpha,
-            device=args.device
+            device=args.device,
         )
     elif args.mode == "diff_with_base":
         result = diff_with_base(
@@ -385,7 +354,7 @@ def main(args):
             a=args.dwb_a,
             b=args.dwb_b,
             x=args.dwb_x,
-            is_safetensors=args.dwb_is_safetensors
+            is_safetensors=args.dwb_is_safetensors,
         )
     else:
         raise ValueError("Invalid mode. Please choose 'adapter' or 'model'.")
@@ -396,66 +365,55 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Compute and save applied differential updates for"
-                    "adapters or models."
+        "adapters or models."
     )
     parser.add_argument(
         "--mode",
         choices=["adapter", "model", "diff_with_base"],
         required=True,
-        help="Choose 'adapter', 'model', or 'diff_with_base' mode.")
+        help="Choose 'adapter', 'model', or 'diff_with_base' mode.",
+    )
     parser.add_argument(
         "--sub_alpha",
         type=float,
         default=1,
-        help="Scaling factor for difference (default: 1)."
+        help="Scaling factor for difference (default: 1).",
     )
     parser.add_argument(
         "--apl_alpha",
         type=float,
         default=1,
-        help="Scaling factor for applying updates (default: 1)."
+        help="Scaling factor for applying updates (default: 1).",
     )
     parser.add_argument(
         "--device",
         type=str,
         default="cpu",
-        help="Device to load models (e.g., 'cpu' or 'cuda'). Default is 'cpu'."
+        help="Device to load models (e.g., 'cpu' or 'cuda'). Default is 'cpu'.",
     )
     parser.add_argument(
         "--output_path",
         type=str,
         required=True,
-        help="Path to save the result."
+        help="Path to save the result.",
     )
     parser.add_argument(
-        "--adapter_a",
-        type=str,
-        help="Path to the first adapter file."
+        "--adapter_a", type=str, help="Path to the first adapter file."
     )
     parser.add_argument(
-        "--adapter_b",
-        type=str,
-        help="Path to the second adapter file."
+        "--adapter_b", type=str, help="Path to the second adapter file."
     )
     parser.add_argument(
-        "--adapter_c",
-        type=str,
-        help="Path to the third adapter file."
+        "--adapter_c", type=str, help="Path to the third adapter file."
     )
     parser.add_argument(
-        "--model_a",
-        type=str,
-        help="Identifier or path of the first model."
+        "--model_a", type=str, help="Identifier or path of the first model."
     )
     parser.add_argument(
-        "--model_b",
-        type=str,
-        help="Identifier or path of the second model."
+        "--model_b", type=str, help="Identifier or path of the second model."
     )
     parser.add_argument(
-        "--model_c",
-        type=str,
-        help="Identifier or path of the third model."
+        "--model_c", type=str, help="Identifier or path of the third model."
     )
     parser.add_argument(
         "--dwb_base",
@@ -469,16 +427,8 @@ if __name__ == "__main__":
         "--dwb_b",
         type=str,
     )
-    parser.add_argument(
-        "--dwb_x",
-        type=float,
-        default=2
-    )
-    parser.add_argument(
-        "--dwb_is_safetensors",
-        type=bool,
-        default=True
-    )
+    parser.add_argument("--dwb_x", type=float, default=2)
+    parser.add_argument("--dwb_is_safetensors", type=bool, default=True)
 
     args = parser.parse_args()
     main(args)
