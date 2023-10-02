@@ -1,4 +1,4 @@
-# Version: 0.04
+# Version: 0.05
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -313,49 +313,45 @@ def get_applied_diff_model(
     return applied_diff_model
 
 
-def diff_with_base(base, a, b, x=1, is_safetensors=True):
+def diff_with_base(base, a, b, x, is_safetensors):
     cLoRA = {}
     if is_safetensors is True:
-        base = {}
+        baseLoRA = {}
         aLoRA = {}
         bLoRA = {}
-        with safe_open(base, framework="pt", device="cpu") as fbase:
-            for kbase in fbase.keys():
-                base[kbase] = fbase.get_tensor(kbase)
-        with safe_open(a, framework="pt", device="cpu") as faLoRA:
-            for kaLoRA in faLoRA.keys():
-                aLoRA[kaLoRA] = faLoRA.get_tensor(kaLoRA)
-        with safe_open(b, framework="pt", device="cpu") as fbLoRA:
-            for kbLoRA in fbLoRA.keys():
-                bLoRA[kbLoRA] = fbLoRA.get_tensor(kbLoRA)
+        with safe_open(base, framework="pt", device="cpu") as f:
+            for k in f.keys():
+                baseLoRA[k] = f.get_tensor(k)
+        with safe_open(a, framework="pt", device="cpu") as f:
+            for k in f.keys():
+                aLoRA[k] = f.get_tensor(k)
+        with safe_open(b, framework="pt", device="cpu") as f:
+            for k in f.keys():
+                bLoRA[k] = f.get_tensor(k)
     else:
-        base = torch.load(base, map_location="cpu")
+        baseLoRA = torch.load(base, map_location="cpu")
         aLoRA = torch.load(a, map_location="cpu")
         bLoRA = torch.load(b, map_location="cpu")
 
-    for k in tqdm(base.keys()):
+    for k in tqdm(baseLoRA.keys()):
         if k in aLoRA.keys() and k in bLoRA.keys():
-            cLoRA[k] = (
-                    torch.sub(aLoRA[k], base[k])
-                    +
-                    torch.sub(bLoRA[k], base[k])
-            ) / x
-            base[k] = None
+            cLoRA[k] = (torch.sub(aLoRA[k], baseLoRA[k]) + torch.sub(bLoRA[k], baseLoRA[k])) / x
+            baseLoRA[k] = None
             aLoRA[k] = None
             bLoRA[k] = None
         elif k in aLoRA.keys():
-            cLoRA[k] = torch.sub(aLoRA[k], base[k])
-            base[k] = None
+            cLoRA[k] = torch.sub(aLoRA[k], baseLoRA[k])
+            baseLoRA[k] = None
             aLoRA[k] = None
         elif k in bLoRA.keys():
-            cLoRA[k] = torch.sub(bLoRA[k], base[k])
-            base[k] = None
+            cLoRA[k] = torch.sub(bLoRA[k], baseLoRA[k])
+            baseLoRA[k] = None
             bLoRA[k] = None
         else:
-            cLoRA[k] = torch.sub(base[k], base[k])
-            base[k] = None
+            cLoRA[k] = torch.sub(baseLoRA[k], baseLoRA[k])
+            baseLoRA[k] = None
 
-    base = None
+    baseLoRA = None
     aLoRA = None
     bLoRA = None
 
@@ -388,7 +384,8 @@ def main(args):
             base=args.dwb_base,
             a=args.dwb_a,
             b=args.dwb_b,
-            x=args.dwb_x
+            x=args.dwb_x,
+            is_safetensors=args.dwb_is_safetensors
         )
     else:
         raise ValueError("Invalid mode. Please choose 'adapter' or 'model'.")
@@ -473,8 +470,14 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
-        "--dwb_c",
-        type=str,
+        "--dwb_x",
+        type=float,
+        default=2
+    )
+    parser.add_argument(
+        "--dwb_is_safetensors",
+        type=bool,
+        default=True
     )
 
     args = parser.parse_args()
