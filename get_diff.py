@@ -1,4 +1,4 @@
-# Version: 0.07
+# Version: 0.08
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
