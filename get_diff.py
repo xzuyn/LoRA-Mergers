@@ -300,7 +300,11 @@ def diff_with_base(base, a, b, x, is_safetensors):
 
     for k in tqdm(baseLoRA.keys()):
         if k in aLoRA.keys() and k in bLoRA.keys():
-            baseLoRA[k], aLoRA[k], bLoRA[k] = baseLoRA[k].to("cuda"), aLoRA[k].to("cuda"), bLoRA[k].to("cuda")
+            baseLoRA[k], aLoRA[k], bLoRA[k] = (
+                baseLoRA[k].to("cuda"),
+                aLoRA[k].to("cuda"),
+                bLoRA[k].to("cuda"),
+            )
             cLoRA[k] = torch.div(
                 torch.add(
                     torch.sub(aLoRA[k], baseLoRA[k]),
@@ -313,8 +317,7 @@ def diff_with_base(base, a, b, x, is_safetensors):
             aLoRA[k] = None
             bLoRA[k] = None
         elif k in aLoRA.keys():
-            baseLoRA[k], aLoRA[k] = baseLoRA[k].to("cuda"), aLoRA[
-                k].to("cuda")
+            baseLoRA[k], aLoRA[k] = baseLoRA[k].to("cuda"), aLoRA[k].to("cuda")
             cLoRA[k] = torch.sub(aLoRA[k], baseLoRA[k])
             cLoRA[k].to("cpu")
             baseLoRA[k] = None
