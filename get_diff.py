@@ -1,4 +1,4 @@
-# Version: 0.05
+# Version: 0.06
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -131,10 +131,9 @@ def get_applied_diff_adapter(
     cLoRA = torch.load(c, map_location=device)
 
     for k in tqdm(cLoRA.keys()):
-        applied_diff_model[k] = torch.add(
-            input=cLoRA[k],
-            other=torch.mul(diff_adapter[k], apl_alpha),
-            alpha=sub_alpha,
+        applied_diff_model[k] = torch.mul(
+            torch.add(input=cLoRA[k], other=diff_adapter[k], alpha=sub_alpha),
+            apl_alpha,
         )
 
     cLoRA = None
@@ -269,8 +268,8 @@ def get_applied_diff_model(
     )
 
     for k in tqdm(cModel.state_dict().keys()):
-        applied_diff_model[k] = torch.add(
-            input=cModel, other=torch.mul(diff_model[k], apl_alpha)
+        applied_diff_model[k] = torch.mul(
+            torch.add(input=cModel, other=diff_model[k]), apl_alpha
         )
 
     cModel = None
@@ -301,10 +300,13 @@ def diff_with_base(base, a, b, x, is_safetensors):
 
     for k in tqdm(baseLoRA.keys()):
         if k in aLoRA.keys() and k in bLoRA.keys():
-            cLoRA[k] = (
-                torch.sub(aLoRA[k], baseLoRA[k])
-                + torch.sub(bLoRA[k], baseLoRA[k])
-            ) / x
+            cLoRA[k] = torch.div(
+                torch.add(
+                    torch.sub(aLoRA[k], baseLoRA[k]),
+                    torch.sub(bLoRA[k], baseLoRA[k]),
+                ),
+                x,
+            )
             baseLoRA[k] = None
             aLoRA[k] = None
             bLoRA[k] = None
@@ -382,8 +384,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--apl_alpha",
         type=float,
-        default=1,
-        help="Scaling factor for applying updates (default: 1).",
+        default=0.5,
+        help="Scaling factor for applying updates. 0.5 would be an average merge. 1 would add the difference ontop. 0 would 0 out the weights. (default: 0.5.).",
     )
     parser.add_argument(
         "--device",
