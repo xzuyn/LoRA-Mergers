@@ -1,4 +1,4 @@
-# Version: 0.20
+# Version: 0.21
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -261,17 +261,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "--pytorch_base",
         type=str,
-        help="Path to any PyTorch model which you'd like to treat as the 'base' model. This will be subtracted from adapter_b so that we hopefully don't duplicate that information during merging.",
+        help="Path to any PyTorch model which you'd like to treat as the "
+        "'base' model. This will be subtracted from adapter_b so that we "
+        "hopefully don't duplicate that information during merging.",
     )
     parser.add_argument(
         "--pytorch_a",
         type=str,
-        help="Path to any PyTorch model which will be your main model. The difference from base and adapter_b will be applied to this model.",
+        help="Path to any PyTorch model which will be your main model. "
+        "The difference from base and adapter_b will be applied to "
+        "this model.",
     )
     parser.add_argument(
         "--pytorch_b",
         type=str,
-        help="Path to any PyTorch model which will be the model you are trying to get the difference of to apply onto adapter_a.",
+        help="Path to any PyTorch model which will be the model you are "
+        "trying to get the difference of to apply onto adapter_a.",
     )
     parser.add_argument("--model_base", type=str)
     parser.add_argument("--model_a", type=str)
