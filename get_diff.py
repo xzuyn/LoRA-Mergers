@@ -1,4 +1,4 @@
-# Version: 0.11
+# Version: 0.12
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -184,12 +184,14 @@ def main(args):
         )
     elif args.mode == "model":
         result = get_applied_diff_model(
+            base=args.model_base,
             a=args.model_a,
             b=args.model_b,
-            c=args.model_c,
             sub_alpha=args.sub_alpha,
             apl_alpha=args.apl_alpha,
-            device=args.device,
+            device1=args.device1,
+            device2=args.device2,
+            
         )
     else:
         raise ValueError("Invalid mode. Please choose 'adapter' or 'model'.")
@@ -250,13 +252,13 @@ if __name__ == "__main__":
         help="Path to any PyTorch model which will be the model you are trying to get the difference of to apply onto adapter_a.",
     )
     parser.add_argument(
-        "--model_a", type=str, help="Identifier or path of the first model."
+        "--model_base", type=str
     )
     parser.add_argument(
-        "--model_b", type=str, help="Identifier or path of the second model."
+        "--model_a", type=str
     )
     parser.add_argument(
-        "--model_c", type=str, help="Identifier or path of the third model."
+        "--model_b", type=str
     )
     parser.add_argument("--is_safetensors", type=bool, default=False)
 
