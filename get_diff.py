@@ -1,4 +1,4 @@
-# Version: 0.12
+# Version: 0.13
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -171,11 +171,11 @@ def get_applied_diff_model(
 
 
 def main(args):
-    if args.mode == "adapter":
+    if args.mode == "pytorch":
         result = get_applied_diff_pytorch(
-            base=args.adapter_base,
-            a=args.adapter_a,
-            b=args.adapter_b,
+            base=args.pytorch_base,
+            a=args.pytorch_a,
+            b=args.pytorch_b,
             sub_alpha=args.sub_alpha,
             apl_alpha=args.apl_alpha,
             device1=args.device1,
@@ -190,8 +190,7 @@ def main(args):
             sub_alpha=args.sub_alpha,
             apl_alpha=args.apl_alpha,
             device1=args.device1,
-            device2=args.device2,
-            
+            device2=args.device2
         )
     else:
         raise ValueError("Invalid mode. Please choose 'adapter' or 'model'.")
@@ -206,9 +205,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--mode",
-        choices=["adapter", "model", "diff_with_base"],
+        choices=["pytorch", "model"],
         required=True,
-        help="Choose 'adapter', 'model', or 'diff_with_base' mode.",
+        help="Choose 'pytorch', 'model' mode.",
     )
     parser.add_argument(
         "--sub_alpha",
@@ -222,12 +221,6 @@ if __name__ == "__main__":
         default=1,
         help="Scaling factor for applying updates. 0.5 would be an average merge. 1 would add the difference ontop. 0 would 0 out the weights. (default: 0.5.).",
     )
-    parser.add_argument(
-        "--device",
-        type=str,
-        default="cpu",
-        help="Device to load models (e.g., 'cpu' or 'cuda'). Default is 'cpu'.",
-    ),
     parser.add_argument("--device1", type=str, default="cpu"),
     parser.add_argument("--device2", type=str, default="cuda"),
     parser.add_argument(
@@ -237,17 +230,17 @@ if __name__ == "__main__":
         help="Path to save the result.",
     )
     parser.add_argument(
-        "--adapter_base",
+        "--pytorch_base",
         type=str,
         help="Path to any PyTorch model which you'd like to treat as the 'base' model. This will be subtracted from adapter_b so that we hopefully don't duplicate that information during merging.",
     )
     parser.add_argument(
-        "--adapter_a",
+        "--pytorch_a",
         type=str,
         help="Path to any PyTorch model which will be your main model. The difference from base and adapter_b will be applied to this model.",
     )
     parser.add_argument(
-        "--adapter_b",
+        "--pytorch_b",
         type=str,
         help="Path to any PyTorch model which will be the model you are trying to get the difference of to apply onto adapter_a.",
     )
