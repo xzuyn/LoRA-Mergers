@@ -1,4 +1,4 @@
-# Version: 0.18
+# Version: 0.19
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -177,6 +177,8 @@ def get_applied_diff_model(
     print("Applying Difference.")
     for k in tqdm(diff_model.keys()):
         if k in aModel.state_dict().keys():
+            if device2 != device1:
+                (aModel.state_dict()[k],) = aModel.state_dict()[k].to(device2)
             applied_diff_model[k] = torch.add(
                 input=aModel.state_dict()[k],
                 other=diff_model[k],
@@ -238,7 +240,15 @@ if __name__ == "__main__":
         help="Choose 'pytorch', 'model' mode.",
     )
     parser.add_argument(
-        "--mode",
+        "--output_path",
+        type=str,
+        required=True,
+        help="Path to save the result.",
+    )
+    parser.add_argument("--device1", type=str, default="cpu"),
+    parser.add_argument("--device2", type=str, default="cuda"),
+    parser.add_argument(
+        "--save_format",
         choices=["safetensors", "pytorch"],
         default="safetensors",
         help="Choose 'safetensors', 'pytorch' mode.",
@@ -250,14 +260,6 @@ if __name__ == "__main__":
         help="Scaling factor for difference (default: 1).",
     )
     parser.add_argument("--apl_alpha", type=float, default=1)
-    parser.add_argument("--device1", type=str, default="cpu"),
-    parser.add_argument("--device2", type=str, default="cuda"),
-    parser.add_argument(
-        "--output_path",
-        type=str,
-        required=True,
-        help="Path to save the result.",
-    )
     parser.add_argument(
         "--pytorch_base",
         type=str,
