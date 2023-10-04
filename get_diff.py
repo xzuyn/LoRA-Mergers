@@ -1,4 +1,4 @@
-# Version: 0.16
+# Version: 0.17
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -59,6 +59,7 @@ def get_applied_diff_pytorch(
         basePyTorch = torch.load(base, map_location=device1)
         bPyTorch = torch.load(b, map_location=device1)
 
+    print("Getting Difference.")
     for k in tqdm(basePyTorch.keys()):
         if k in bPyTorch.keys():
             if device2 != device1:
@@ -89,8 +90,11 @@ def get_applied_diff_pytorch(
     else:
         aPyTorch = torch.load(a, map_location=device1)
 
+    print("Applying Difference.")
     for k in tqdm(diff_model_pytorch.keys()):
         if k in aPyTorch.keys():
+            if device2 != device1:
+                aPyTorch[k] = aPyTorch[k].to(device2)
             applied_diff_pytorch[k] = torch.add(
                 input=aPyTorch[k], other=diff_model_pytorch[k], alpha=apl_alpha
             )
@@ -136,6 +140,7 @@ def get_applied_diff_model(
         b, load_in_8bit=False, torch_dtype=torch.float16, device_map=device1
     )
 
+    print("Getting Difference.")
     for k in tqdm(baseModel.state_dict().keys()):
         if k in bModel.state_dict().keys():
             if device2 != device1:
@@ -168,6 +173,7 @@ def get_applied_diff_model(
         a, load_in_8bit=False, torch_dtype=torch.float16, device_map=device1
     )
 
+    print("Applying Difference.")
     for k in tqdm(diff_model.keys()):
         if k in aModel.state_dict().keys():
             applied_diff_model[k] = torch.add(
@@ -209,7 +215,14 @@ def main(args):
     else:
         raise ValueError("Invalid mode. Please choose 'adapter' or 'model'.")
 
-    save_file(result, args.output_path)
+    if args.save_format == "safetensors":
+        save_file(tensors=result, filename=args.output_path)
+    elif args.save_format == "pytorch":
+        torch.save(obj=result, f=args.output_path)
+    else:
+        raise ValueError(
+            "Invalid format. Please choose 'safetensors' or 'pytorch'."
+        )
 
 
 if __name__ == "__main__":
@@ -222,6 +235,12 @@ if __name__ == "__main__":
         choices=["pytorch", "model"],
         required=True,
         help="Choose 'pytorch', 'model' mode.",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["safetensors", "pytorch"],
+        default="safetensors",
+        help="Choose 'safetensors', 'pytorch' mode.",
     )
     parser.add_argument(
         "--sub_alpha",
