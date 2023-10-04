@@ -1,4 +1,4 @@
-# Version: 0.19
+# Version: 0.20
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -67,10 +67,8 @@ def get_applied_diff_pytorch(
                     basePyTorch[k].to(device2),
                     bPyTorch[k].to(device2),
                 )
-            diff_model_pytorch[k] = torch.add(
-                input=bPyTorch[k],
-                other=basePyTorch[k],
-                alpha=sub_alpha,
+            diff_model_pytorch[k] = torch.sub(
+                input=bPyTorch[k], other=basePyTorch[k], alpha=sub_alpha
             )
         else:
             if device2 != device1:
