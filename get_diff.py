@@ -44,56 +44,60 @@ def get_applied_diff_pytorch(
         >>>     device2='cuda'
         >>>)
     """
+    diff_model_pytorch = {}
     applied_diff_pytorch = {}
-    if is_safetensors is True:
+    if is_safetensors:
         basePyTorch = {}
-        aPyTorch = {}
         bPyTorch = {}
         with safe_open(base, framework="pt", device=device1) as f:
             for k in f.keys():
                 basePyTorch[k] = f.get_tensor(k)
-        with safe_open(a, framework="pt", device=device1) as f:
-            for k in f.keys():
-                aPyTorch[k] = f.get_tensor(k)
         with safe_open(b, framework="pt", device=device1) as f:
             for k in f.keys():
                 bPyTorch[k] = f.get_tensor(k)
     else:
         basePyTorch = torch.load(base, map_location=device1)
-        aPyTorch = torch.load(a, map_location=device1)
         bPyTorch = torch.load(b, map_location=device1)
 
     for k in tqdm(basePyTorch.keys()):
-        if k in aPyTorch.keys() and k in bPyTorch.keys():
+        if k in bPyTorch.keys():
             if device2 != device1:
-                basePyTorch[k], aPyTorch[k], bPyTorch[k] = (
+                basePyTorch[k], bPyTorch[k] = (
                     basePyTorch[k].to(device2),
-                    aPyTorch[k].to(device2),
                     bPyTorch[k].to(device2),
                 )
-            applied_diff_pytorch[k] = torch.add(
-                input=aPyTorch[k],
-                other=torch.sub(
-                    input=bPyTorch[k], other=basePyTorch[k], alpha=sub_alpha
-                ),
-                alpha=apl_alpha,
+            diff_model_pytorch[k] = torch.add(
+                input=bPyTorch[k],
+                other=basePyTorch[k],
+                alpha=sub_alpha,
             )
-        elif k in aPyTorch.keys():
-            if device2 != device1:
-                aPyTorch[k] = aPyTorch[k].to(device2)
-            applied_diff_pytorch[k] = aPyTorch[k]
-        elif k in bPyTorch.keys():
-            if device2 != device1:
-                bPyTorch[k] = bPyTorch[k].to(device2)
-            applied_diff_pytorch[k] = bPyTorch[k]
         else:
             if device2 != device1:
                 basePyTorch[k] = basePyTorch[k].to(device2)
-            applied_diff_pytorch[k] = basePyTorch[k]
-        basePyTorch[k], aPyTorch[k], bPyTorch[k] = None, None, None
+            diff_model_pytorch[k] = torch.mul(input=basePyTorch[k], other=0)
+        basePyTorch[k], bPyTorch[k] = None, None
         gc.collect()
 
-    basePyTorch, aPyTorch, bPyTorch = None, None, None
+    basePyTorch, bPyTorch = None, None
+    gc.collect()
+
+    if is_safetensors:
+        aPyTorch = {}
+        with safe_open(b, framework="pt", device=device1) as f:
+            for k in f.keys():
+                aPyTorch[k] = f.get_tensor(k)
+    else:
+        aPyTorch = torch.load(a, map_location=device1)
+
+    for k in tqdm(diff_model_pytorch.keys()):
+        if k in aPyTorch.keys():
+            applied_diff_pytorch[k] = torch.add(
+                input=aPyTorch[k], other=diff_model_pytorch[k], alpha=apl_alpha
+            )
+        aPyTorch[k], diff_model_pytorch[k] = None, None
+        gc.collect()
+
+    aPyTorch, diff_model_pytorch = None, None
     gc.collect()
 
     return applied_diff_pytorch
@@ -157,8 +161,7 @@ def get_applied_diff_model(
         baseModel.state_dict()[k], bModel.state_dict()[k] = None, None
         gc.collect()
 
-    baseModel = None
-    bModel = None
+    baseModel, bModel = None, None
     gc.collect()
 
     aModel = AutoModel.from_pretrained(
@@ -166,7 +169,7 @@ def get_applied_diff_model(
     )
 
     for k in tqdm(diff_model.keys()):
-        if device2 != device1:
+        if k in aModel.state_dict().keys():
             applied_diff_model[k] = torch.add(
                 input=aModel.state_dict()[k],
                 other=diff_model[k],
@@ -175,8 +178,8 @@ def get_applied_diff_model(
         aModel.state_dict()[k], diff_model[k] = None, None
         gc.collect()
 
-    aModel = None
-    diff_model = None
+    aModel, diff_model = None, None
+    gc.collect()
 
     return applied_diff_model
 
@@ -226,11 +229,7 @@ if __name__ == "__main__":
         default=1,
         help="Scaling factor for difference (default: 1).",
     )
-    parser.add_argument(
-        "--apl_alpha",
-        type=float,
-        default=1
-    )
+    parser.add_argument("--apl_alpha", type=float, default=1)
     parser.add_argument("--device1", type=str, default="cpu"),
     parser.add_argument("--device2", type=str, default="cuda"),
     parser.add_argument(
