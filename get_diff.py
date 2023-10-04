@@ -1,4 +1,4 @@
-# Version: 0.17
+# Version: 0.18
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -32,12 +32,12 @@ def get_applied_diff_pytorch(
 ):
     """
     applied_diff_pytorch = a + ((b - (base * sub_alpha)) * apl_alpha)
-    applied_diff_pytorch = 'airo' + (('chronos' - ('L2' * sub_alpha)) * apl_alpha)
+    applied_diff_pytorch = 'airo' + (('hermes' - ('L2' * sub_alpha)) * apl_alpha)
 
         >>> applied_diff_pytorch = get_applied_diff_pytorch(
-        >>>     'base.bin',
-        >>>     'a.bin',
-        >>>     'b.bin',
+        >>>     'base_model.bin',
+        >>>     'model_a.bin',
+        >>>     'model_b.bin',
         >>>     sub_alpha=1,
         >>>     apl_alpha=1,
         >>>     device1='cpu',
@@ -117,8 +117,8 @@ def get_applied_diff_model(
     device2: str = "cuda",
 ):
     """
-    Generate a model with applied differential updates based on three
-    pretrained models.
+    applied_diff_model = a + ((b - (base * sub_alpha)) * apl_alpha)
+    applied_diff_model = 'airo' + (('hermes' - ('L2' * sub_alpha)) * apl_alpha)
 
         >>> applied_diff = get_applied_diff_model(
         >>>     'meta-llama/Llama-2-7b-hf',
@@ -126,7 +126,8 @@ def get_applied_diff_model(
         >>>     'NousResearch/Nous-Hermes-llama-2-7b',
         >>>     sub_alpha=1,
         >>>     apl_alpha=1,
-        >>>     device='cuda'
+        >>>     device1='cuda',
+        >>>     device2='cpu'
         >>>)
     """
     diff_model = {}
