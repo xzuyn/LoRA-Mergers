@@ -1,4 +1,4 @@
-# Version: 0.08
+# Version: 0.09
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -28,7 +28,7 @@ def get_diff_adapter(
 
     This function takes two file paths `a` and `b`, loads PyTorch dictionaries
     from these files, and computes the element-wise difference between
-    corresponding keys in the dictionaries.
+    corresponding keys in the dictionaries. diff_adapter = (a - (b * sub_alpha)).
 
     Args:
         a (str): File path to the first PyTorch dictionary.
@@ -68,78 +68,55 @@ def get_diff_adapter(
 
 
 def get_applied_diff_adapter(
+    base: str,
     a: str,
     b: str,
-    c: str,
     sub_alpha: float = 1,
     apl_alpha: float = 1,
-    device: str = "cpu",
+    device1: str = "cpu",
+    device2: str = "cuda",
 ):
     """
-    Generate a model with applied adapter differential updates based on three
-    adapter files.
-
-    This function takes three adapter files (a, b, and c) and computes the
-    difference between the first two adapter files (a - b) with an optional
-    scaling factor `sub_alpha`. Then, it applies the computed adapter
-    differential updates to the third adapter file (c) with an optional
-    scaling factor `apl_alpha`.
-
-    Args:
-        a (str): File path or identifier of the first adapter file.
-        b (str): File path or identifier of the second adapter file.
-        c (str): File path or identifier of the third adapter file.
-        sub_alpha (float, optional): Scaling factor for the difference
-            between a and b. Default is 1.
-        apl_alpha (float, optional): Scaling factor for applying the adapter
-            differential updates to c. Default is 1.
-        device (str, optional): Specifies the device (e.g., 'cpu' or 'cuda')
-            on which to load the adapters. Default is 'cpu'.
-
-    Returns:
-        dict: A dictionary containing the adapter state_dict of the model
-            with applied adapter differential updates.
-
-    Example:
-        Suppose you have three adapter files identified as 'adapter_a',
-        'adapter_b', and 'adapter_c', and you want to generate a model
-        with applied adapter differential updates:
+    applied_diff_model = a + ((b - (base * sub_alpha)) * apl_alpha)
+    applied_diff_model = 'airo' + (('chronos' - ('L2' * sub_alpha)) * apl_alpha)
 
         >>> applied_diff = get_applied_diff_adapter(
+        >>>     'base.bin',
         >>>     'a.bin',
         >>>     'b.bin',
-        >>>     'c.bin',
         >>>     sub_alpha=1,
         >>>     apl_alpha=1,
-        >>>     device='cuda'
+        >>>     device1='cpu',
+        >>>     device2='cuda'
         >>>)
     """
     diff_adapter = {}
-    applied_diff_model = {}
 
     # Load adapter using torch.load to avoid needing the base model
-    aLoRA = torch.load(a, map_location=device)
-    bLoRA = torch.load(b, map_location=device)
+    baseLoRA = torch.load(base, map_location=device1)
+    aLoRA = torch.load(a, map_location=device1)
+    bLoRA = torch.load(b, map_location=device1)
 
     for k in tqdm(aLoRA.keys()):
-        diff_adapter[k] = torch.sub(
-            input=aLoRA[k], other=bLoRA[k], alpha=sub_alpha
+        baseLoRA[k], aLoRA[k], bLoRA[k] = (
+            baseLoRA[k].to(device2),
+            aLoRA[k].to(device2),
+            bLoRA[k].to(device2),
         )
-
-    aLoRA = None
-    bLoRA = None
-    cLoRA = torch.load(c, map_location=device)
-
-    for k in tqdm(cLoRA.keys()):
-        applied_diff_model[k] = torch.mul(
-            torch.add(input=cLoRA[k], other=diff_adapter[k], alpha=sub_alpha),
-            apl_alpha,
+        diff_adapter[k] = torch.add(
+            input=aLoRA[k],
+            other=torch.sub(
+                input=bLoRA[k], other=baseLoRA[k], alpha=sub_alpha
+            ),
+            alpha=apl_alpha,
         )
+        baseLoRA[k], aLoRA[k], bLoRA[k] = None, None, None
 
-    cLoRA = None
-    diff_adapter = None
+    baseLoRA, aLoRA, bLoRA = None, None, None
 
-    return applied_diff_model
+    gc.collect()
+
+    return diff_adapter
 
 
 def get_diff_model(a: str, b: str, sub_alpha: float = 1, device: str = "cpu"):
@@ -259,6 +236,7 @@ def get_applied_diff_model(
             other=bModel.state_dict()[k],
             alpha=sub_alpha,
         )
+        aModel.state_dict()[k], bModel.state_dict()[k] = None, None
 
     aModel = None
     bModel = None
@@ -278,6 +256,8 @@ def get_applied_diff_model(
     return applied_diff_model
 
 
+# TODO: allow setting where base, a, & b load individually
+# TODO: allow setting to either do math on cpu or gpu
 def diff_with_base(base, a, b, x, is_safetensors):
     cLoRA = {}
     if is_safetensors is True:
@@ -346,12 +326,13 @@ def diff_with_base(base, a, b, x, is_safetensors):
 def main(args):
     if args.mode == "adapter":
         result = get_applied_diff_adapter(
+            base=args.adapter_base,
             a=args.adapter_a,
             b=args.adapter_b,
-            c=args.adapter_c,
             sub_alpha=args.sub_alpha,
             apl_alpha=args.apl_alpha,
-            device=args.device,
+            device1=args.device1,
+            device2=args.device2,
         )
     elif args.mode == "model":
         result = get_applied_diff_model(
@@ -404,7 +385,17 @@ if __name__ == "__main__":
         type=str,
         default="cpu",
         help="Device to load models (e.g., 'cpu' or 'cuda'). Default is 'cpu'.",
-    )
+    ),
+    parser.add_argument(
+        "--device1",
+        type=str,
+        default="cpu"
+    ),
+    parser.add_argument(
+        "--device2",
+        type=str,
+        default="cuda"
+    ),
     parser.add_argument(
         "--output_path",
         type=str,
@@ -412,13 +403,13 @@ if __name__ == "__main__":
         help="Path to save the result.",
     )
     parser.add_argument(
-        "--adapter_a", type=str, help="Path to the first adapter file."
+        "--adapter_base", type=str, help="Path to any PyTorch model which you'd like to treat as the 'base' model. This will be subtracted from adapter_b so that we hopefully don't duplicate that information during merging."
     )
     parser.add_argument(
-        "--adapter_b", type=str, help="Path to the second adapter file."
+        "--adapter_a", type=str, help="Path to any PyTorch model which will be your main model. The difference from base and adapter_b will be applied to this model."
     )
     parser.add_argument(
-        "--adapter_c", type=str, help="Path to the third adapter file."
+        "--adapter_b", type=str, help="Path to any PyTorch model which will be the model you are trying to get the difference of to apply onto adapter_a."
     )
     parser.add_argument(
         "--model_a", type=str, help="Identifier or path of the first model."
@@ -442,7 +433,7 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument("--dwb_x", type=float, default=2)
-    parser.add_argument("--dwb_is_safetensors", type=bool, default=True)
+    parser.add_argument("--dwb_is_safetensors", type=bool, default=False)
 
     args = parser.parse_args()
     main(args)
