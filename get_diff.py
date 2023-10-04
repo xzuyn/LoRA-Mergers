@@ -1,4 +1,4 @@
-# Version: 0.09
+# Version: 0.10
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -377,7 +377,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--apl_alpha",
         type=float,
-        default=0.5,
+        default=1,
         help="Scaling factor for applying updates. 0.5 would be an average merge. 1 would add the difference ontop. 0 would 0 out the weights. (default: 0.5.).",
     )
     parser.add_argument(
@@ -386,16 +386,8 @@ if __name__ == "__main__":
         default="cpu",
         help="Device to load models (e.g., 'cpu' or 'cuda'). Default is 'cpu'.",
     ),
-    parser.add_argument(
-        "--device1",
-        type=str,
-        default="cpu"
-    ),
-    parser.add_argument(
-        "--device2",
-        type=str,
-        default="cuda"
-    ),
+    parser.add_argument("--device1", type=str, default="cpu"),
+    parser.add_argument("--device2", type=str, default="cuda"),
     parser.add_argument(
         "--output_path",
         type=str,
@@ -403,13 +395,19 @@ if __name__ == "__main__":
         help="Path to save the result.",
     )
     parser.add_argument(
-        "--adapter_base", type=str, help="Path to any PyTorch model which you'd like to treat as the 'base' model. This will be subtracted from adapter_b so that we hopefully don't duplicate that information during merging."
+        "--adapter_base",
+        type=str,
+        help="Path to any PyTorch model which you'd like to treat as the 'base' model. This will be subtracted from adapter_b so that we hopefully don't duplicate that information during merging.",
     )
     parser.add_argument(
-        "--adapter_a", type=str, help="Path to any PyTorch model which will be your main model. The difference from base and adapter_b will be applied to this model."
+        "--adapter_a",
+        type=str,
+        help="Path to any PyTorch model which will be your main model. The difference from base and adapter_b will be applied to this model.",
     )
     parser.add_argument(
-        "--adapter_b", type=str, help="Path to any PyTorch model which will be the model you are trying to get the difference of to apply onto adapter_a."
+        "--adapter_b",
+        type=str,
+        help="Path to any PyTorch model which will be the model you are trying to get the difference of to apply onto adapter_a.",
     )
     parser.add_argument(
         "--model_a", type=str, help="Identifier or path of the first model."
