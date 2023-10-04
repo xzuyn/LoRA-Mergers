@@ -178,7 +178,7 @@ def get_applied_diff_model(
     for k in tqdm(diff_model.keys()):
         if k in aModel.state_dict().keys():
             if device2 != device1:
-                (aModel.state_dict()[k],) = aModel.state_dict()[k].to(device2)
+                aModel.state_dict()[k] = aModel.state_dict()[k].to(device2)
             applied_diff_model[k] = torch.add(
                 input=aModel.state_dict()[k],
                 other=diff_model[k],
