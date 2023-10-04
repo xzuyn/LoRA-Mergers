@@ -1,4 +1,4 @@
-# Version: 0.14
+# Version: 0.15
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -46,54 +46,54 @@ def get_applied_diff_pytorch(
     """
     applied_diff_pytorch = {}
     if is_safetensors is True:
-        baseLoRA = {}
-        aLoRA = {}
-        bLoRA = {}
+        basePyTorch = {}
+        aPyTorch = {}
+        bPyTorch = {}
         with safe_open(base, framework="pt", device=device1) as f:
             for k in f.keys():
-                baseLoRA[k] = f.get_tensor(k)
+                basePyTorch[k] = f.get_tensor(k)
         with safe_open(a, framework="pt", device=device1) as f:
             for k in f.keys():
-                aLoRA[k] = f.get_tensor(k)
+                aPyTorch[k] = f.get_tensor(k)
         with safe_open(b, framework="pt", device=device1) as f:
             for k in f.keys():
-                bLoRA[k] = f.get_tensor(k)
+                bPyTorch[k] = f.get_tensor(k)
     else:
-        baseLoRA = torch.load(base, map_location=device1)
-        aLoRA = torch.load(a, map_location=device1)
-        bLoRA = torch.load(b, map_location=device1)
+        basePyTorch = torch.load(base, map_location=device1)
+        aPyTorch = torch.load(a, map_location=device1)
+        bPyTorch = torch.load(b, map_location=device1)
 
-    for k in tqdm(baseLoRA.keys()):
-        if k in aLoRA.keys() and k in bLoRA.keys():
+    for k in tqdm(basePyTorch.keys()):
+        if k in aPyTorch.keys() and k in bPyTorch.keys():
             if device2 != device1:
-                baseLoRA[k], aLoRA[k], bLoRA[k] = (
-                    baseLoRA[k].to(device2),
-                    aLoRA[k].to(device2),
-                    bLoRA[k].to(device2),
+                basePyTorch[k], aPyTorch[k], bPyTorch[k] = (
+                    basePyTorch[k].to(device2),
+                    aPyTorch[k].to(device2),
+                    bPyTorch[k].to(device2),
                 )
             applied_diff_pytorch[k] = torch.add(
-                input=aLoRA[k],
+                input=aPyTorch[k],
                 other=torch.sub(
-                    input=bLoRA[k], other=baseLoRA[k], alpha=sub_alpha
+                    input=bPyTorch[k], other=basePyTorch[k], alpha=sub_alpha
                 ),
                 alpha=apl_alpha,
             )
-        elif k in aLoRA.keys():
+        elif k in aPyTorch.keys():
             if device2 != device1:
-                aLoRA[k] = aLoRA[k].to(device2)
-            applied_diff_pytorch[k] = aLoRA[k]
-        elif k in bLoRA.keys():
+                aPyTorch[k] = aPyTorch[k].to(device2)
+            applied_diff_pytorch[k] = aPyTorch[k]
+        elif k in bPyTorch.keys():
             if device2 != device1:
-                bLoRA[k] = bLoRA[k].to(device2)
-            applied_diff_pytorch[k] = bLoRA[k]
+                bPyTorch[k] = bPyTorch[k].to(device2)
+            applied_diff_pytorch[k] = bPyTorch[k]
         else:
             if device2 != device1:
-                baseLoRA[k] = baseLoRA[k].to(device2)
-            applied_diff_pytorch[k] = baseLoRA[k]
-        baseLoRA[k], aLoRA[k], bLoRA[k] = None, None, None
+                basePyTorch[k] = basePyTorch[k].to(device2)
+            applied_diff_pytorch[k] = basePyTorch[k]
+        basePyTorch[k], aPyTorch[k], bPyTorch[k] = None, None, None
         gc.collect()
 
-    baseLoRA, aLoRA, bLoRA = None, None, None
+    basePyTorch, aPyTorch, bPyTorch = None, None, None
     gc.collect()
 
     return applied_diff_pytorch
