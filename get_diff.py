@@ -1,4 +1,4 @@
-# Version: 0.13
+# Version: 0.14
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -49,13 +49,13 @@ def get_applied_diff_pytorch(
         baseLoRA = {}
         aLoRA = {}
         bLoRA = {}
-        with safe_open(base, framework="pt", device="cpu") as f:
+        with safe_open(base, framework="pt", device=device1) as f:
             for k in f.keys():
                 baseLoRA[k] = f.get_tensor(k)
-        with safe_open(a, framework="pt", device="cpu") as f:
+        with safe_open(a, framework="pt", device=device1) as f:
             for k in f.keys():
                 aLoRA[k] = f.get_tensor(k)
-        with safe_open(b, framework="pt", device="cpu") as f:
+        with safe_open(b, framework="pt", device=device1) as f:
             for k in f.keys():
                 bLoRA[k] = f.get_tensor(k)
     else:
@@ -65,11 +65,12 @@ def get_applied_diff_pytorch(
 
     for k in tqdm(baseLoRA.keys()):
         if k in aLoRA.keys() and k in bLoRA.keys():
-            baseLoRA[k], aLoRA[k], bLoRA[k] = (
-                baseLoRA[k].to(device2),
-                aLoRA[k].to(device2),
-                bLoRA[k].to(device2),
-            )
+            if device2 != device1:
+                baseLoRA[k], aLoRA[k], bLoRA[k] = (
+                    baseLoRA[k].to(device2),
+                    aLoRA[k].to(device2),
+                    bLoRA[k].to(device2),
+                )
             applied_diff_pytorch[k] = torch.add(
                 input=aLoRA[k],
                 other=torch.sub(
@@ -78,13 +79,16 @@ def get_applied_diff_pytorch(
                 alpha=apl_alpha,
             )
         elif k in aLoRA.keys():
-            aLoRA[k] = aLoRA[k].to(device2)
+            if device2 != device1:
+                aLoRA[k] = aLoRA[k].to(device2)
             applied_diff_pytorch[k] = aLoRA[k]
         elif k in bLoRA.keys():
-            bLoRA[k] = bLoRA[k].to(device2)
+            if device2 != device1:
+                bLoRA[k] = bLoRA[k].to(device2)
             applied_diff_pytorch[k] = bLoRA[k]
         else:
-            baseLoRA[k] = baseLoRA[k].to(device2)
+            if device2 != device1:
+                baseLoRA[k] = baseLoRA[k].to(device2)
             applied_diff_pytorch[k] = baseLoRA[k]
         baseLoRA[k], aLoRA[k], bLoRA[k] = None, None, None
         gc.collect()
@@ -130,21 +134,25 @@ def get_applied_diff_model(
 
     for k in tqdm(baseModel.state_dict().keys()):
         if k in bModel.state_dict().keys():
-            (
-                baseModel.state_dict()[k],
-                bModel.state_dict()[k],
-            ) = baseModel.state_dict()[k].to(device2), bModel.state_dict()[
-                k
-            ].to(
-                device2
-            )
+            if device2 != device1:
+                (
+                    baseModel.state_dict()[k],
+                    bModel.state_dict()[k],
+                ) = baseModel.state_dict()[k].to(device2), bModel.state_dict()[
+                    k
+                ].to(
+                    device2
+                )
             diff_model[k] = torch.sub(
                 input=bModel.state_dict()[k],
                 other=baseModel.state_dict()[k],
                 alpha=sub_alpha,
             )
         else:
-            baseModel.state_dict()[k] = baseModel.state_dict()[k].to(device2)
+            if device2 != device1:
+                baseModel.state_dict()[k] = baseModel.state_dict()[k].to(
+                    device2
+                )
             diff_model[k] = torch.mul(input=baseModel.state_dict()[k], other=0)
         baseModel.state_dict()[k], bModel.state_dict()[k] = None, None
         gc.collect()
@@ -158,9 +166,12 @@ def get_applied_diff_model(
     )
 
     for k in tqdm(diff_model.keys()):
-        applied_diff_model[k] = torch.add(
-            input=aModel.state_dict()[k], other=diff_model[k], alpha=apl_alpha
-        )
+        if device2 != device1:
+            applied_diff_model[k] = torch.add(
+                input=aModel.state_dict()[k],
+                other=diff_model[k],
+                alpha=apl_alpha,
+            )
         aModel.state_dict()[k], diff_model[k] = None, None
         gc.collect()
 
@@ -190,7 +201,7 @@ def main(args):
             sub_alpha=args.sub_alpha,
             apl_alpha=args.apl_alpha,
             device1=args.device1,
-            device2=args.device2
+            device2=args.device2,
         )
     else:
         raise ValueError("Invalid mode. Please choose 'adapter' or 'model'.")
@@ -244,15 +255,9 @@ if __name__ == "__main__":
         type=str,
         help="Path to any PyTorch model which will be the model you are trying to get the difference of to apply onto adapter_a.",
     )
-    parser.add_argument(
-        "--model_base", type=str
-    )
-    parser.add_argument(
-        "--model_a", type=str
-    )
-    parser.add_argument(
-        "--model_b", type=str
-    )
+    parser.add_argument("--model_base", type=str)
+    parser.add_argument("--model_a", type=str)
+    parser.add_argument("--model_b", type=str)
     parser.add_argument("--is_safetensors", type=bool, default=False)
 
     args = parser.parse_args()
