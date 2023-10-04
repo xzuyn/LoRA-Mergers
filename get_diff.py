@@ -1,4 +1,4 @@
-# Version: 0.15
+# Version: 0.16
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -229,8 +229,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--apl_alpha",
         type=float,
-        default=1,
-        help="Scaling factor for applying updates. 0.5 would be an average merge. 1 would add the difference ontop. 0 would 0 out the weights. (default: 0.5.).",
+        default=1
     )
     parser.add_argument("--device1", type=str, default="cpu"),
     parser.add_argument("--device2", type=str, default="cuda"),
