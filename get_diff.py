@@ -1,4 +1,4 @@
-# Version: 0.21
+# Version: 0.22
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -25,7 +25,7 @@ def get_applied_diff_pytorch(
     a: str,
     b: str,
     sub_alpha: float = 1,
-    apl_alpha: float = 1,
+    apl_alpha: float = 0.5,
     device1: str = "cpu",
     device2: str = "cuda",
     is_safetensors: bool = False,
@@ -93,8 +93,9 @@ def get_applied_diff_pytorch(
         if k in aPyTorch.keys():
             if device2 != device1:
                 aPyTorch[k] = aPyTorch[k].to(device2)
-            applied_diff_pytorch[k] = torch.add(
-                input=aPyTorch[k], other=diff_model_pytorch[k], alpha=apl_alpha
+            applied_diff_pytorch[k] = torch.mul(
+                torch.add(input=aPyTorch[k], other=diff_model_pytorch[k]),
+                other=apl_alpha,
             )
         aPyTorch[k], diff_model_pytorch[k] = None, None
         gc.collect()
@@ -110,7 +111,7 @@ def get_applied_diff_model(
     a: str,
     b: str,
     sub_alpha: float = 1,
-    apl_alpha: float = 1,
+    apl_alpha: float = 0.5,
     device1: str = "cpu",
     device2: str = "cuda",
 ):
@@ -177,10 +178,9 @@ def get_applied_diff_model(
         if k in aModel.state_dict().keys():
             if device2 != device1:
                 aModel.state_dict()[k] = aModel.state_dict()[k].to(device2)
-            applied_diff_model[k] = torch.add(
-                input=aModel.state_dict()[k],
-                other=diff_model[k],
-                alpha=apl_alpha,
+            applied_diff_model[k] = torch.mul(
+                torch.add(input=aModel.state_dict()[k], other=diff_model[k]),
+                other=apl_alpha,
             )
         aModel.state_dict()[k], diff_model[k] = None, None
         gc.collect()
@@ -257,7 +257,7 @@ if __name__ == "__main__":
         default=1,
         help="Scaling factor for difference (default: 1).",
     )
-    parser.add_argument("--apl_alpha", type=float, default=1)
+    parser.add_argument("--apl_alpha", type=float, default=0.5)
     parser.add_argument(
         "--pytorch_base",
         type=str,
