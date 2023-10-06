@@ -1,4 +1,4 @@
-# Version: 0.25
+# Version: 0.26
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -293,10 +293,10 @@ def main(args):
         )
     elif args.mode == "clusterbomb":
         result = clusterbomb(
-            aFileStr=args.cb_a,
-            bFileStr=args.cb_b,
-            cFileStr=args.cb_c,
-            dFileStr=args.cb_d,
+            afilestr=args.cb_a,
+            bfilestr=args.cb_b,
+            cfilestr=args.cb_c,
+            dfilestr=args.cb_d,
             is_safetensors=args.is_safetensors,
             device1=args.device1,
             device2=args.device2,
