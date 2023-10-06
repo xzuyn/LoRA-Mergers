@@ -1,4 +1,4 @@
-# Version: 0.23
+# Version: 0.24
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -67,14 +67,14 @@ def clusterbomb(
                 )
             detonation[k] = torch.div(
                 input=torch.add(
-                    input=a,
+                    input=a[k],
                     other=torch.div(
                         input=torch.add(
                             torch.add(
-                                input=torch.sub(input=b, other=a),
-                                other=torch.sub(input=c, other=a),
+                                input=torch.sub(input=b[k], other=a[k]),
+                                other=torch.sub(input=c[k], other=a[k]),
                             ),
-                            other=torch.sub(input=d, other=a),
+                            other=torch.sub(input=d[k], other=a[k]),
                         ),
                         other=3,
                     ),
