@@ -1,4 +1,4 @@
-# Version: 0.22
+# Version: 0.23
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -18,6 +18,82 @@ from safetensors.torch import save_file, safe_open
 from tqdm import tqdm
 import argparse
 import gc
+
+
+def clusterbomb(
+    a: str,
+    b: str,
+    c: str,
+    d: str,
+    is_safetensors: bool,
+    device1: str,
+    device2: str,
+):
+    """
+    detonation = (a + (((b - a) + (c - a) + (d - a)) / 3)) / 2
+    """
+    detonation = {}
+    if is_safetensors:
+        a = {}
+        b = {}
+        c = {}
+        d = {}
+        with safe_open(a, framework="pt", device=device1) as f:
+            for k in f.keys():
+                a[k] = f.get_tensor(k)
+        with safe_open(b, framework="pt", device=device1) as f:
+            for k in f.keys():
+                b[k] = f.get_tensor(k)
+        with safe_open(c, framework="pt", device=device1) as f:
+            for k in f.keys():
+                c[k] = f.get_tensor(k)
+        with safe_open(d, framework="pt", device=device1) as f:
+            for k in f.keys():
+                d[k] = f.get_tensor(k)
+    else:
+        a = torch.load(a, map_location=device1)
+        b = torch.load(b, map_location=device1)
+        c = torch.load(c, map_location=device1)
+        d = torch.load(d, map_location=device1)
+
+    for k in tqdm(a.keys()):
+        if k in b.keys() and k in c.keys() and k in d.keys():
+            if device2 != device1:
+                a[k], b[k], c[k], d[k] = (
+                    a[k].to(device2),
+                    b[k].to(device2),
+                    c[k].to(device2),
+                    d[k].to(device2),
+                )
+            detonation[k] = torch.div(
+                input=torch.add(
+                    input=a,
+                    other=torch.div(
+                        input=torch.add(
+                            torch.add(
+                                input=torch.sub(input=b, other=a),
+                                other=torch.sub(input=c, other=a),
+                            ),
+                            other=torch.sub(input=d, other=a),
+                        ),
+                        other=3,
+                    ),
+                ),
+                other=2,
+            )
+            if device1 != device2:
+                detonation[k] = detonation[k].to(device1)
+        else:
+            print(
+                "a key not in all keys not in it. will add something for this later"
+            )
+        a[k], b[k], c[k], d[k] = None, None, None, None
+        gc.collect()
+
+    a, b, c, d = None, None, None, None
+    gc.collect()
+
+    return detonation
 
 
 def get_applied_diff_pytorch(
@@ -70,10 +146,14 @@ def get_applied_diff_pytorch(
             diff_model_pytorch[k] = torch.sub(
                 input=bPyTorch[k], other=basePyTorch[k], alpha=sub_alpha
             )
+            if device1 != device2:
+                diff_model_pytorch[k] = diff_model_pytorch[k].to(device1)
         else:
             if device2 != device1:
                 basePyTorch[k] = basePyTorch[k].to(device2)
             diff_model_pytorch[k] = torch.mul(input=basePyTorch[k], other=0)
+            if device1 != device2:
+                diff_model_pytorch[k] = diff_model_pytorch[k].to(device1)
         basePyTorch[k], bPyTorch[k] = None, None
         gc.collect()
 
@@ -92,11 +172,15 @@ def get_applied_diff_pytorch(
     for k in tqdm(diff_model_pytorch.keys()):
         if k in aPyTorch.keys():
             if device2 != device1:
-                aPyTorch[k] = aPyTorch[k].to(device2)
+                aPyTorch[k], diff_model_pytorch[k] = aPyTorch[k].to(
+                    device2
+                ), diff_model_pytorch[k].to(device2)
             applied_diff_pytorch[k] = torch.mul(
                 torch.add(input=aPyTorch[k], other=diff_model_pytorch[k]),
                 other=apl_alpha,
             )
+            if device1 != device2:
+                applied_diff_pytorch[k] = applied_diff_pytorch[k].to(device1)
         aPyTorch[k], diff_model_pytorch[k] = None, None
         gc.collect()
 
@@ -157,12 +241,16 @@ def get_applied_diff_model(
                 other=baseModel.state_dict()[k],
                 alpha=sub_alpha,
             )
+            if device1 != device2:
+                diff_model[k] = diff_model[k].to(device1)
         else:
             if device2 != device1:
                 baseModel.state_dict()[k] = baseModel.state_dict()[k].to(
                     device2
                 )
             diff_model[k] = torch.mul(input=baseModel.state_dict()[k], other=0)
+            if device1 != device2:
+                diff_model[k] = diff_model[k].to(device1)
         baseModel.state_dict()[k], bModel.state_dict()[k] = None, None
         gc.collect()
 
@@ -182,6 +270,8 @@ def get_applied_diff_model(
                 torch.add(input=aModel.state_dict()[k], other=diff_model[k]),
                 other=apl_alpha,
             )
+            if device1 != device2:
+                applied_diff_model[k] = applied_diff_model[k].to(device1)
         aModel.state_dict()[k], diff_model[k] = None, None
         gc.collect()
 
@@ -210,6 +300,16 @@ def main(args):
             b=args.model_b,
             sub_alpha=args.sub_alpha,
             apl_alpha=args.apl_alpha,
+            device1=args.device1,
+            device2=args.device2,
+        )
+    elif args.mode == "clusterbomb":
+        result = clusterbomb(
+            a=args.cb_a,
+            b=args.cb_b,
+            c=args.cb_c,
+            d=args.cb_d,
+            is_safetensors=args.is_safetensors,
             device1=args.device1,
             device2=args.device2,
         )
@@ -282,6 +382,11 @@ if __name__ == "__main__":
     parser.add_argument("--model_a", type=str)
     parser.add_argument("--model_b", type=str)
     parser.add_argument("--is_safetensors", type=bool, default=False)
+
+    parser.add_argument("--cb_a", type=str)
+    parser.add_argument("--cb_b", type=str)
+    parser.add_argument("--cb_c", type=str)
+    parser.add_argument("--cb_d", type=str)
 
     args = parser.parse_args()
     main(args)
