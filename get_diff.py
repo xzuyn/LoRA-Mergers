@@ -1,4 +1,4 @@
-# Version: 0.24
+# Version: 0.25
 # Created by: xzuyn
 # Description: Script to subtract one model from another. Also gives the option
 #              to apply that element-wise difference onto another model.
@@ -21,13 +21,13 @@ import gc
 
 
 def clusterbomb(
-    a: str,
-    b: str,
-    c: str,
-    d: str,
-    is_safetensors: bool,
-    device1: str,
-    device2: str,
+    afilestr: str,
+    bfilestr: str,
+    cfilestr: str,
+    dfilestr: str,
+    is_safetensors: bool = True,
+    device1: str = "cpu",
+    device2: str = "cuda",
 ):
     """
     detonation = (a + (((b - a) + (c - a) + (d - a)) / 3)) / 2
@@ -35,58 +35,46 @@ def clusterbomb(
     detonation = {}
     if is_safetensors:
         a = {}
+        with safe_open(afilestr, framework="pt", device=device1) as f:
+            for k in f.keys():
+                a[k] = f.get_tensor(k)
+
+    for k in tqdm(a.keys()):
+        if device2 != device1:
+            a[k] = a[k].to(device2)
         b = {}
         c = {}
         d = {}
-        with safe_open(a, framework="pt", device=device1) as f:
-            for k in f.keys():
-                a[k] = f.get_tensor(k)
-        with safe_open(b, framework="pt", device=device1) as f:
-            for k in f.keys():
-                b[k] = f.get_tensor(k)
-        with safe_open(c, framework="pt", device=device1) as f:
-            for k in f.keys():
-                c[k] = f.get_tensor(k)
-        with safe_open(d, framework="pt", device=device1) as f:
-            for k in f.keys():
-                d[k] = f.get_tensor(k)
-    else:
-        a = torch.load(a, map_location=device1)
-        b = torch.load(b, map_location=device1)
-        c = torch.load(c, map_location=device1)
-        d = torch.load(d, map_location=device1)
+        with safe_open(
+            bfilestr, framework="pt", device=device2
+        ) as fb, safe_open(
+            cfilestr, framework="pt", device=device2
+        ) as fc, safe_open(
+            dfilestr, framework="pt", device=device2
+        ) as fd:
+            b[k], c[k], d[k] = (
+                fb.get_tensor(k),
+                fc.get_tensor(k),
+                fd.get_tensor(k),
+            )
 
-    for k in tqdm(a.keys()):
-        if k in b.keys() and k in c.keys() and k in d.keys():
-            if device2 != device1:
-                a[k], b[k], c[k], d[k] = (
-                    a[k].to(device2),
-                    b[k].to(device2),
-                    c[k].to(device2),
-                    d[k].to(device2),
-                )
-            detonation[k] = torch.div(
-                input=torch.add(
-                    input=a[k],
-                    other=torch.div(
-                        input=torch.add(
-                            torch.add(
-                                input=torch.sub(input=b[k], other=a[k]),
-                                other=torch.sub(input=c[k], other=a[k]),
-                            ),
-                            other=torch.sub(input=d[k], other=a[k]),
+        detonation[k] = torch.div(
+            input=torch.add(
+                input=a[k],
+                other=torch.div(
+                    input=torch.add(
+                        torch.add(
+                            input=torch.sub(input=b[k], other=a[k]),
+                            other=torch.sub(input=c[k], other=a[k]),
                         ),
-                        other=3,
+                        other=torch.sub(input=d[k], other=a[k]),
                     ),
+                    other=3,
                 ),
-                other=2,
-            )
-            if device1 != device2:
-                detonation[k] = detonation[k].to(device1)
-        else:
-            print(
-                "a key not in all keys not in it. will add something for this later"
-            )
+            ),
+            other=2,
+        )
+
         a[k], b[k], c[k], d[k] = None, None, None, None
         gc.collect()
 
@@ -305,10 +293,10 @@ def main(args):
         )
     elif args.mode == "clusterbomb":
         result = clusterbomb(
-            a=args.cb_a,
-            b=args.cb_b,
-            c=args.cb_c,
-            d=args.cb_d,
+            aFileStr=args.cb_a,
+            bFileStr=args.cb_b,
+            cFileStr=args.cb_c,
+            dFileStr=args.cb_d,
             is_safetensors=args.is_safetensors,
             device1=args.device1,
             device2=args.device2,
@@ -333,9 +321,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--mode",
-        choices=["pytorch", "model"],
+        choices=["pytorch", "model", "clusterbomb"],
         required=True,
-        help="Choose 'pytorch', 'model' mode.",
+        help="Choose 'pytorch', 'model', or 'clusterbomb' mode.",
     )
     parser.add_argument(
         "--output_path",
